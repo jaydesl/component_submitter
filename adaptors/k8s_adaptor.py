@@ -24,8 +24,7 @@ TOSCA_TYPES = (
     KUBERNETES_RESOURCE,
     TOSCA_CONTAINER,
     MICADO_COMPUTE,
-    MICADO_MONITORING,
-    MICADO_SECURITY
+    MICADO_MONITORING
 ) = (
     "tosca.nodes.MiCADO.Container.Application.Docker",
     "tosca.nodes.MiCADO.Container.Volume",
@@ -35,20 +34,16 @@ TOSCA_TYPES = (
     "tosca.nodes.MiCADO.Kubernetes",
     "tosca.nodes.Container.Application",
     "tosca.nodes.MiCADO.Compute",
-    "tosca.policies.Monitoring.MiCADO",
-    'tosca.policies.Security.MiCADO.Network'
+    "tosca.policies.Monitoring.MiCADO"
 )
 
 SECURITY_POLICIES = (
-    PASSTHROUGH_PROXY,
     PLUG_PROXY,
     SMTP_PROXY,
     HTTP_PROXY,
     HTTP_URI_FILTER_PROXY,
     HTTP_WEBDAV_PROXY
 ) = (
-    # PfService
-    'tosca.policies.Security.MiCADO.Network.Passthrough',
     # PlugProxy
     'tosca.policies.Security.MiCADO.Network.L7Proxy',
     # SmtpProxy
@@ -117,17 +112,20 @@ class KubernetesAdaptor(base_adaptor.Adaptor):
             if node.type.startswith("tosca.nodes.MiCADO"):
                 self._translate_node_templates(node)
 
+        enable_zorp_ingress = False
         # Look for a monitoring policy and attach default metric exporters to the application
         for policy in self.tpl.policies:
             if policy.type == MICADO_MONITORING:
                 self._translate_monitoring_policy(policy)
 
-            if policy.type.startswith(MICADO_SECURITY):
+            if policy.type in SECURITY_POLICIES:
+                enable_zorp_ingress = True
                 self._translate_security_policy(policy)
 
-        self._deploy_zorp()
-        self._manifest_secrets()
-        self._manifest_ingress()
+        if enable_zorp_ingress:
+            self._deploy_zorp()
+            self._manifest_secrets()
+            self._manifest_ingress()
 
         if not self.manifests:
             logger.info(
@@ -204,11 +202,7 @@ class KubernetesAdaptor(base_adaptor.Adaptor):
             )
 
     def _translate_security_policy(self, policy):
-        if policy.type == PASSTHROUGH_PROXY:
-            # FIXME
-            # passthrough policy does not require ingress rules
-            pass
-        elif policy.type in SECURITY_POLICIES:
+        if policy.type in SECURITY_POLICIES:
             self._translate_level7_policy(policy)
         else:
             logger.warning("Unknown network security policy: {}".format(policy.type))
