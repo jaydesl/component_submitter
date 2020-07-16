@@ -15,6 +15,10 @@ logger = logging.getLogger("adaptor."+__name__)
 PK = (STACK, DATA, SOURCES, CONSTANTS, QUERIES, ALERTS, SCALING, NODES, SERVICES) = \
                 ("stack", "data", "sources", "constants", "queries", "alerts", "scaling", "nodes", "services")
 
+CADVISOR_PORT = "8080"
+NODEX_PORT = "9100"
+TOSCA_EDGE_TYPE = "tosca.nodes.MiCADO.Edge"
+
 
 class PkAdaptor(abco.Adaptor):
 
@@ -55,8 +59,21 @@ class PkAdaptor(abco.Adaptor):
         for policy in self.tpl.policies:
             if policy.type.startswith("tosca.policies.Scaling"):
                 self._check_policies(policy)
-            if not policy.type.startswith("tosca.policies.Scaling"):
+            elif policy.type.startswith("tosca.policies.Monitoring.MiCADO"):
+                cadvisor_enabled = bool(policy.get_property_value("enable_container_metrics"))
+                nodex_enabled = bool(policy.get_property_value("enable_node_metrics"))
+
+        for node in self.tpl.nodetemplates:
+            if node.type != TOSCA_EDGE_TYPE:
                 continue
+            public_ip = node.get_property_value("public_ip")
+            sources = []
+            if cadvisor_enabled:
+                sources.append(public_ip + ":" + CADVISOR_PORT)
+            if nodex_enabled:
+                sources.append(public_ip + ":" + NODEX_PORT)
+            if sources:
+                self._pk_data_list(sources, DATA, SOURCES)  
 
         if tmp:
             self._yaml_write(self.tmp_path)
