@@ -45,27 +45,18 @@ class PkAdaptor(abco.Adaptor):
         self.pk_data = {STACK: self.ID.split("_")[0],
                         SCALING: {}}
         # build node-service rels
-        relations = {}
+
+        self.relations = {}
         for node in self.tpl.nodetemplates:
             for target, relation in node.related.items():
                 if 'HostedOn' in relation.type:
-                    relations.setdefault(node.name, []).append(target.name)            
+                    self.relations.setdefault(node.name, []).append(target.name)
 
         for policy in self.tpl.policies:
+            if policy.type.startswith("tosca.policies.Scaling"):
+                self._check_policies(policy)
             if not policy.type.startswith("tosca.policies.Scaling"):
                 continue
-            for target in policy.targets_list:
-                if utils.get_cloud_type(target, ["compute"]):
-                    node_data = {"name": target.name, "orchestrator": get_interface(target)}
-                    node_data.update(self._pk_scaling_properties(policy))
-                    self.pk_data.setdefault(SCALING, {}).setdefault(NODES, []).append(node_data)
-                else:
-                    if self.pk_data[SCALING].get(SERVICES) is None:
-                        self.pk_data[SCALING][SERVICES] = []
-                    service = {"name": target.name, "hosts": relations.get(target.name, [])}
-                    service.update(self._pk_scaling_properties(policy))
-                    self.pk_data[SCALING][SERVICES].append(service)
-                logger.info("Policy of {0} is translated".format(target.name))
 
         if tmp:
             self._yaml_write(self.tmp_path)
@@ -74,6 +65,26 @@ class PkAdaptor(abco.Adaptor):
             self._yaml_write(self.path)
             logger.info("PK file created")
         self.status = "translated"
+
+    def _check_policies(self, policy):
+        """Policies
+
+        Args:
+            policy ([type]): [description]
+        """
+        
+        for target in policy.targets_list:
+            if utils.get_cloud_type(target, ["compute"]):
+                node_data = {"name": target.name, "orchestrator": get_interface(target)}
+                node_data.update(self._pk_scaling_properties(policy))
+                self.pk_data.setdefault(SCALING, {}).setdefault(NODES, []).append(node_data)
+            else:
+                if self.pk_data[SCALING].get(SERVICES) is None:
+                    self.pk_data[SCALING][SERVICES] = []
+                service = {"name": target.name, "hosts": self.relations.get(target.name, [])}
+                service.update(self._pk_scaling_properties(policy))
+                self.pk_data[SCALING][SERVICES].append(service)
+            logger.info("Policy of {0} is translated".format(target.name))
 
     def execute(self):
         self.status = "executing"
