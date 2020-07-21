@@ -13,7 +13,7 @@ from toscaparser.tosca_template import ToscaTemplate
 from submitter.abstracts import base_adaptor as abco
 from submitter.abstracts.exceptions import AdaptorCritical
 
-SECRET_TYPE = "tosca.policies.Security.MiCADO.Secret.KubernetesSecretDistribution"
+SECRET_TYPE = "tosca.nodes.MiCADO.Container.Secret"
 
 logger = logging.getLogger("adaptors."+__name__)
 
@@ -63,7 +63,7 @@ class SecurityPolicyManagerAdaptor(abco.Adaptor):
         'v1.0/nodecerts'
         self.status = "init"
         if template is not None:
-            self.policies = self.tpl.policies
+            self.nodes = self.tpl.nodetemplates
         logger.debug("Initialising the SE adaptor with the ID and TPL")
 
     def translate(self):
@@ -73,9 +73,9 @@ class SecurityPolicyManagerAdaptor(abco.Adaptor):
         self.status = "executing"
         """ Send to the Security Enforcer the informations
             retrieved from the TOSCA template"""
-        for policy in self.policies:
-            if SECRET_TYPE in policy.type:
-                _interm_dict = policy.get_properties()["text_secrets"].value
+        for node in self.nodes:
+            if node.is_derived_from(SECRET_TYPE):
+                _interm_dict = node.get_properties()["text_secrets"].value
                 for key, value in _interm_dict.items():
                     if self.dryrun:
                         logger.info("launch api command with params name={} and value={} to {}/v1.0/appsecrets".format(key,value,self.endpoint))
