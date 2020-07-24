@@ -1,0 +1,77 @@
+main_config:
+  dry_run: True
+logging:
+  version: 1
+  root:
+    level: DEBUG
+    handlers: [console, file]
+  formatters:
+    simpleFormatter:
+      format: "%(asctime)s %(name)s %(levelname)s %(message)s"
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: simpleFormatter
+      level: DEBUG
+      stream: ext://sys.stdout
+    file:
+      class : logging.handlers.RotatingFileHandler
+      formatter: simpleFormatter
+      mode: a
+      level: DEBUG
+      filename: /var/log/submitter/submitter.log
+      maxBytes: 52428800
+      backupCount: 3
+
+step:
+  translate:
+    - SecurityPolicyManagerAdaptor
+    - KubernetesAdaptor
+    - TerraformAdaptor
+    - PkAdaptor
+  execute:
+    - SecurityPolicyManagerAdaptor
+    - TerraformAdaptor
+    - KubernetesAdaptor
+    - PkAdaptor
+  update:
+    - SecurityPolicyManagerAdaptor
+    - TerraformAdaptor
+    - KubernetesAdaptor
+    - PkAdaptor
+  undeploy:
+    - PkAdaptor
+    - KubernetesAdaptor
+    - TerraformAdaptor
+    - SecurityPolicyManagerAdaptor
+  cleanup:
+    - KubernetesAdaptor
+    - TerraformAdaptor
+    - PkAdaptor
+    - SecurityPolicyManagerAdaptor
+
+adaptor_config:
+  KubernetesAdaptor:
+    types:
+      - "tosca.nodes.MiCADO.Container.Application.Docker"
+      - "tosca.policies.Security.MiCADO.Network.*"
+    endoint: "endpoint"
+    volume: "./files/output_configs/"
+
+  TerraformAdaptor:
+    types:
+      - "tosca.nodes.MiCADO.Terraform.*"
+    endoint: "endpoint"
+    volume: "./files/output_configs/"
+
+  PkAdaptor:
+    types:
+      - "tosca.policies.Scaling.MiCADO"
+    endpoint: "policykeeper:12345"
+    volume: "./files/output_configs/"
+
+  SecurityPolicyManagerAdaptor:
+    types:
+      - "tosca.policies.Security.MiCADO.Secret.KubernetesSecretDistribution"
+    endoint: "endpoint"
+    volume: "./files/output_configs/"
